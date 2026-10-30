@@ -1,0 +1,53 @@
+name: Build APK con Cordova
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      - name: Installa Cordova
+        run: npm install -g cordova
+
+      - name: Crea progetto, FORZA l'icona e compila
+        run: |
+          cordova create app com.tuonome.disastrotattico "Disastro Tattico"
+          
+          cp index.html app/www/index.html
+          cp manifest.json app/www/manifest.json
+          cp sw.js app/www/sw.js
+          
+          cd app
+          cordova platform add android
+          
+          find platforms/android/app/src/main/res -name "*launcher*.png" -exec cp ../logo.png {} \;
+          
+          cordova build android
+
+      - name: Carica l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
