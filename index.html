@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Disastro Tattico ⚽</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a202c">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a202c; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* HEADER */
+  .header { padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; background: #2d3748; border-bottom: 1px solid #4a5568; z-index: 20; flex-shrink: 0; }
+  .header-left { display: flex; align-items: center; gap: 8px; }
+  .header h1 { font-size: 0.95rem; font-weight: 800; color: #48bb78; letter-spacing: 1px; }
+  .team-name { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; cursor: pointer; background: #4a5568; padding: 4px 10px; border-radius: 6px; display: flex; align-items: center; gap: 4px; }
+  
+  .zoom-controls { display: flex; gap: 8px; align-items: center; }
+  .zoom-btn { background: #4a5568; color: #fff; border: none; width: 36px; height: 36px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  
+  /* AREA CAMPO */
+  .canvas-container { flex: 1; position: relative; background: #111; overflow: hidden; touch-action: none; }
+  .canvas-wrapper { position: absolute; transform-origin: 0 0; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+  canvas { display: block; position: absolute; top: 0; left: 0; }
+  
+  #fieldCanvas { z-index: 1; }
+  #objCanvas { z-index: 2; pointer-events: none; }
+  #drawCanvas { z-index: 3; pointer-events: auto; cursor: crosshair; }
+  
+  /* CONTROLLI */
+  .controls { background: #2d3748; padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 12px; z-index: 20; flex-shrink: 0; border-top: 1px solid #4a5568; position: relative; }
+  
+  .toolbar { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .tool-btn { background: #4a5568; color: #fff; border: 2px solid transparent; padding: 12px 16px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+  .tool-btn.active { border-color: #48bb78; background: #2f855a; transform: scale(1.05); }
+
+  /* Sottomenu Attrezzi */
+  .submenu { display: none; position: absolute; bottom: 80px; left: 16px; right: 16px; background: #1a202c; padding: 20px; border-radius: 16px; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); border: 1px solid #4a5568; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 12px; z-index: 30; }
+  .submenu.open { display: grid; animation: slideUp 0.2s ease-out; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .close-submenu { position: absolute; top: 10px; right: 10px; background: #e53e3e; color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  
+  .tool-btn-small { background: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; padding: 12px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .tool-btn-small.active { border-color: #48bb78; background: #276749; color: #fff; }
+  
+  .action-row { display: flex; gap: 10px; }
+  .action-btn { flex: 1; padding: 14px; border: none; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .btn-save { background: #48bb78; color: #fff; }
+  .btn-clear { background: #e53e3e; color: #fff; }
+  .btn-load { background: #3182ce; color: #fff; }
+
+  /* MODALE */
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .modal.active { display: flex; }
+  .modal-content { background: #2d3748; padding: 24px; border-radius: 16px; width: 100%; max-width: 450px; border: 1px solid #4a5568; }
+  .modal-content h2 { font-size: 1.4rem; margin-bottom: 20px; color: #48bb78; text-align: center; }
+  
+  .input-nome { width: 100%; padding: 14px; border-radius: 10px; border: 2px solid #4a5568; background: #1a202c; color: #fff; font-size: 1.1rem; margin-bottom: 20px; outline: none; }
+  .input-nome:focus { border-color: #48bb78; }
+  
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button { flex: 1; padding: 14px; border-radius: 10px; border: none; font-weight: 800; font-size: 1rem; cursor: pointer; }
+  .btn-confirm { background: #48bb78; color: #fff; }
+  .btn-cancel { background: #4a5568; color: #fff; }
+
+  .lista-schemi { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto; }
+  .schema-item { background: #1a202c; padding: 14px; border-radius: 10px; border: 1px solid #4a5568; font-weight: 600; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .schema-info { flex: 1; cursor: pointer; }
+  .schema-info:hover { color: #48bb78; }
+  .btn-delete { background: #e53e3e; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-left: 10px; }
+
+  /* ===== RESPONSIVE DESIGN PER TELEFONO ===== */
+  @media screen and (max-width: 768px) {
+    .header { padding: 8px 12px; }
+    .header h1 { font-size: 0.85rem; }
+    .team-name { font-size: 0.8rem; padding: 4px 8px; }
+    .zoom-controls { gap: 6px; }
+    .zoom-btn { width: 40px; height: 40px; font-size: 1.4rem; }
+    .toolbar { gap: 8px; }
+    .tool-btn { padding: 14px 16px; font-size: 1rem; border-radius: 12px; }
+    .submenu { padding: 20px; bottom: 100px; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+    .tool-btn-small { padding: 16px 10px; font-size: 0.9rem; border-radius: 12px; }
+    .close-submenu { width: 40px; height: 40px; font-size: 1.4rem; top: 8px; right: 8px; }
+    .action-row { gap: 8px; }
+    .action-btn { padding: 16px; font-size: 1rem; border-radius: 12px; }
+    .modal-content { padding: 20px; }
+    .modal-content h2 { font-size: 1.3rem; }
+    .input-nome { font-size: 1.2rem; padding: 16px; }
+    .schema-item { padding: 16px; font-size: 1.1rem; }
+    .btn-delete { padding: 12px 16px; font-size: 1.1rem; }
+    .modal-actions button { padding: 16px; font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>DISASTRO TATTICO</h1>
+    <div class="team-name" onclick="cambiaSquadra()" id="teamNameDisplay">Samba ✏️</div>
+  </div>
+  <div class="zoom-controls">
+    <button class="zoom-btn" onclick="changeZoom(-0.2)">-</button>
+    <button class="zoom-btn" onclick="resetView()" style="font-size:1rem;">🔄</button>
+    <button class="zoom-btn" onclick="changeZoom(0.2)">+</button>
+  </div>
+</div>
+
+<div class="canvas-container" id="canvasContainer">
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <canvas id="fieldCanvas"></canvas>
+    <canvas id="objCanvas"></canvas>
+    <canvas id="drawCanvas"></canvas>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="submenu" id="attrezziSubmenu">
+    <button class="close-submenu" onclick="toggleSubmenu()">✕</button>
+    <button class="tool-btn-small" id="sub-ball" onclick="setTool('ball')">⚽<br>Palla</button>
+    <button class="tool-btn-small" id="sub-cone" onclick="setTool('cone')">🔺<br>Cono</button>
+    <button class="tool-btn-small" id="sub-disc" onclick="setTool('disc')">🟡<br>Cinesino</button>
+    <button class="tool-btn-small" id="sub-circle" onclick="setTool('circle')">⭕<br>Cerchio</button>
+    <button class="tool-btn-small" id="sub-goal" onclick="setTool('goal')">🥅<br>Porta</button>
+    <button class="tool-btn-small" id="sub-dummy" onclick="setTool('dummy')">🧍<br>Manichino</button>
+    <button class="tool-btn-small" id="sub-pole" onclick="setTool('pole')">🚩<br>Paletto</button>
+    <button class="tool-btn-small" id="sub-hurdle" onclick="setTool('hurdle')">╫<br>Barra</button>
+    <button class="tool-btn-small" id="sub-text" onclick="setTool('text')">Aa<br>Testo</button>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool-btn active" id="tool-move" onclick="setTool('move')">✋ Sposta</button>
+    <button class="tool-btn" id="tool-draw" onclick="setTool('draw')">✏️ Disegna</button>
+    <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')">🧽 Gomma</button>
+    <button class="tool-btn" id="tool-player-red" onclick="setTool('player-red')">🔴 Giocatore</button>
+    <button class="tool-btn" id="tool-player-blue" onclick="setTool('player-blue')">🔵 Avversario</button>
+    <button class="tool-btn" id="tool-attrezzi" onclick="toggleSubmenu()">⚙️ Attrezzi</button>
+  </div>
+  
+  <div class="action-row">
+    <button class="action-btn btn-save" onclick="apriModaleSalva()">💾 Salva</button>
+    <button class="action-btn btn-load" onclick="apriModaleCarica()">📂 Carica</button>
+    <button class="action-btn btn-clear" onclick="pulisciCampo()">🗑️ Pulisci</button>
+  </div>
+</div>
+
+<!-- MODALE SALVA -->
+<div class="modal" id="modaleSalva">
+  <div class="modal-content">
+    <h2>💾 Salva Schema</h2>
+    <input type="text" id="nomeSchemaInput" class="input-nome" placeholder="Es. Punizione Laterale..." autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="chiudiModaleSalva()">Annulla</button>
+      <button class="btn-confirm" onclick="confermaSalvataggio()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE CARICA -->
+<div class="modal" id="modaleCarica">
+  <div class="modal-content">
+    <h2>📂 I tuoi Schemi</h2>
+    <div class="lista-schemi" id="listaSchemiContainer"></div>
+    <button class="btn-cancel" style="width:100%; padding:14px; border-radius:10px; border:none; font-weight:800;" onclick="chiudiModaleCarica()">Chiudi</button>
+  </div>
+</div>
+
+<script>
+  const fieldCanvas = document.getElementById('fieldCanvas');
+  const objCanvas = document.getElementById('objCanvas');
+  const drawCanvas = document.getElementById('drawCanvas');
+  const container = document.getElementById('canvasContainer');
+  const wrapper = document.getElementById('canvasWrapper');
+  const submenu = document.getElementById('attrezziSubmenu');
+  
+  const fCtx = fieldCanvas.getContext('2d');
+  const oCtx = objCanvas.getContext('2d');
+  const dCtx = drawCanvas.getContext('2d');
+
+  let currentTool = 'move';
+  let scale = 1;
+  let panX = 0, panY = 0;
+  
+  let oggetti = [];
+  let oggettoTrascinato = null;
+  let trattiDisegno = []; 
+  let trattoCorrente = null;
+
+  const fieldWidth = 650;
+  const fieldHeight = 1000;
+
+  let initialDistance = 0;
+  let initialScale = 1;
+  let initialMidX = 0, initialMidY = 0;
+  let isPanning = false;
+  let timeoutPiazzamento = null;
+
+  let nomeSquadra = localStorage.getItem("sambaTeamName") || "Samba";
+  document.getElementById("teamNameDisplay").textContent = nomeSquadra + " ✏️";
+
+  function cambiaSquadra() {
+    const nuovoNome = prompt("Inserisci il nome della tua squadra:", nomeSquadra);
+    if (nuovoNome && nuovoNome.trim() !== "") {
+      nomeSquadra = nuovoNome.trim();
+      localStorage.setItem("sambaTeamName", nomeSquadra);
+      document.getElementById("teamNameDisplay").textContent = nomeSquadra + " ✏️";
+    }
+  }
+
+  function initCanvas() {
+    [fieldCanvas, objCanvas, drawCanvas].forEach(c => {
+      c.width = fieldWidth;
+      c.height = fieldHeight;
+    });
+    wrapper.style.width = fieldWidth + 'px';
+    wrapper.style.height = fieldHeight + 'px';
+    disegnaCampo();
+    setTimeout(centraCampo, 50);
+  }
+
+  function centraCampo() {
+    const rect = container.getBoundingClientRect();
+    const cw = rect.width; const ch = rect.height;
+    const scaleX = cw / fieldWidth; const scaleY = ch / fieldHeight;
+    scale = Math.min(scaleX, scaleY) * 0.95; 
+    panX = (cw - (fieldWidth * scale)) / 2;
+    panY = (ch - (fieldHeight * scale)) / 2;
+    aggiornaTrasformazione();
+  }
+
+  function aggiornaTrasformazione() {
+    wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+
+  function changeZoom(delta) {
+    const cw = container.clientWidth; const ch = container.clientHeight;
+    const newScale = Math.max(0.2, Math.min(4, scale + delta));
+    const scaleChange = newScale / scale;
+    panX = panX * scaleChange + (cw / 2) * (1 - scaleChange);
+    panY = panY * scaleChange + (ch / 2) * (1 - scaleChange);
+    scale = newScale;
+    aggiornaTrasformazione();
+  }
+
+  function resetView() { centraCampo(); }
+  window.addEventListener('resize', centraCampo);
+
+  function disegnaCampo() {
+    fCtx.clearRect(0, 0, fieldWidth, fieldHeight);
+    fCtx.fillStyle = "#38a169"; fCtx.fillRect(0, 0, fieldWidth, fieldHeight);
+    fCtx.fillStyle = "#2f855a";
+    const stripeHeight = fieldHeight / 10;
+    for (let i = 0; i < 10; i += 2) fCtx.fillRect(0, i * stripeHeight, fieldWidth, stripeHeight);
+
+    fCtx.strokeStyle = "rgba(255, 255, 255, 0.8)"; fCtx.lineWidth = 4;
+    const margin = fieldWidth * 0.05;
+    fCtx.strokeRect(margin, margin, fieldWidth - margin * 2, fieldHeight - margin * 2);
+    fCtx.beginPath(); fCtx.moveTo(margin, fieldHeight / 2); fCtx.lineTo(fieldWidth - margin, fieldHeight / 2); fCtx.stroke();
+    fCtx.beginPath(); fCtx.arc(fieldWidth / 2, fieldHeight / 2, fieldWidth * 0.15, 0, Math.PI * 2); fCtx.stroke();
+    fCtx.beginPath(); fCtx.arc(fieldWidth / 2, fieldHeight / 2, 6, 0, Math.PI * 2); fCtx.fillStyle = "white"; fCtx.fill();
+    const areaWidth = fieldWidth * 0.45; const areaHeight = fieldHeight * 0.15;
+    fCtx.strokeRect((fieldWidth - areaWidth) / 2, margin, areaWidth, areaHeight);
+    fCtx.strokeRect((fieldWidth - areaWidth * 0.4) / 2, margin, areaWidth * 0.4, areaHeight * 0.4);
+    fCtx.strokeRect((fieldWidth - areaWidth) / 2, fieldHeight - margin - areaHeight, areaWidth, areaHeight);
+    fCtx.strokeRect((fieldWidth - areaWidth * 0.4) / 2, fieldHeight - margin - areaHeight * 0.4, areaWidth * 0.4, areaHeight * 0.4);
+  }
+
+  function ridisegnaTratti() {
+    dCtx.clearRect(0, 0, fieldWidth, fieldHeight);
+    trattiDisegno.forEach(tratto => {
+      dCtx.beginPath(); dCtx.moveTo(tratto.points[0].x, tratto.points[0].y);
+      for (let i = 1; i < tratto.points.length; i++) dCtx.lineTo(tratto.points[i].x, tratto.points[i].y);
+      dCtx.strokeStyle = "#ffffff"; dCtx.lineWidth = tratto.thickness || 5; dCtx.lineCap = "round"; dCtx.lineJoin = "round"; dCtx.stroke();
+    });
+  }
+
+  function cancellaTrattiVicini(x, y) {
+    const raggio = 30; let cancellato = false;
+    trattiDisegno = trattiDisegno.filter(tratto => {
+      if (tratto.points.some(p => Math.hypot(p.x - x, p.y - y) < raggio)) { cancellato = true; return false; }
+      return true;
+    });
+    if (cancellato) ridisegnaTratti();
+  }
+
+  function ridisegnaOggetti() {
+    oCtx.clearRect(0, 0, fieldWidth, fieldHeight);
+    oggetti.forEach(obj => {
+      oCtx.save(); oCtx.translate(obj.x, obj.y);
+      
+      if (obj.type === 'ball') {
+        oCtx.font = `28px Arial`; oCtx.textAlign = "center"; oCtx.textBaseline = "middle"; oCtx.fillText('⚽', 0, 0);
+      } else if (obj.type === 'cone') {
+        oCtx.beginPath(); oCtx.moveTo(0, -20); oCtx.lineTo(15, 15); oCtx.lineTo(-15, 15); oCtx.closePath();
+        oCtx.fillStyle = "#ed8936"; oCtx.fill(); oCtx.strokeStyle = "#fff"; oCtx.lineWidth = 2; oCtx.stroke();
+      } else if (obj.type === 'disc') {
+        oCtx.beginPath(); oCtx.arc(0, 0, 10, 0, Math.PI * 2); oCtx.fillStyle = "#eab308"; oCtx.fill(); oCtx.strokeStyle = "#ca8a04"; oCtx.lineWidth = 2; oCtx.stroke();
+      } else if (obj.type === 'circle') {
+        oCtx.beginPath(); oCtx.arc(0, 0, 18, 0, Math.PI * 2);
+        oCtx.strokeStyle = "#f6ad55"; oCtx.lineWidth = 4; oCtx.stroke();
+      } else if (obj.type === 'goal') {
+        oCtx.font = `50px Arial`; oCtx.textAlign = "center"; oCtx.textBaseline = "middle"; oCtx.fillText('🥅', 0, 0);
+      } else if (obj.type === 'dummy') {
+        oCtx.font = `40px Arial`; oCtx.textAlign = "center"; oCtx.textBaseline = "middle"; oCtx.fillText('🧍', 0, 0);
+      } else if (obj.type === 'pole') {
+        oCtx.beginPath(); oCtx.moveTo(0, 15); oCtx.lineTo(0, -25); oCtx.strokeStyle = "#ecc94b"; oCtx.lineWidth = 4; oCtx.stroke();
+        oCtx.beginPath(); oCtx.arc(0, 15, 6, 0, Math.PI * 2); oCtx.fillStyle = "#2d3748"; oCtx.fill(); oCtx.strokeStyle = "#a0aec0"; oCtx.lineWidth = 2; oCtx.stroke();
+      } else if (obj.type === 'hurdle') {
+        oCtx.beginPath(); oCtx.moveTo(-15, 15); oCtx.lineTo(-15, -15); oCtx.moveTo(15, 15); oCtx.lineTo(15, -15); oCtx.strokeStyle = "#a0aec0"; oCtx.lineWidth = 3; oCtx.stroke();
+        oCtx.beginPath(); oCtx.moveTo(-15, -15); oCtx.lineTo(15, -15); oCtx.strokeStyle = "#ecc94b"; oCtx.lineWidth = 4; oCtx.stroke();
+      } else if (obj.type === 'player') {
+        oCtx.beginPath(); oCtx.arc(0, 0, 22, 0, Math.PI * 2); oCtx.fillStyle = obj.color; oCtx.fill(); oCtx.strokeStyle = "#fff"; oCtx.lineWidth = 3; oCtx.stroke();
+      } else if (obj.type === 'text') {
+        oCtx.font = `bold 20px Arial`; oCtx.textAlign = "center"; oCtx.textBaseline = "middle";
+        oCtx.fillStyle = "#ffffff"; oCtx.strokeStyle = "#000000"; oCtx.lineWidth = 4;
+        oCtx.strokeText(obj.text, 0, 0); oCtx.fillText(obj.text, 0, 0);
+      }
+      oCtx.restore();
+    });
+  }
+
+  function toggleSubmenu() { submenu.classList.toggle('open'); }
+
+  function setTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn, .tool-btn-small').forEach(btn => btn.classList.remove('active'));
+    if (['cone', 'disc', 'circle', 'goal', 'dummy', 'pole', 'hurdle', 'text', 'ball'].includes(tool)) {
+      submenu.classList.add('open');
+      const btn = document.getElementById('sub-' + tool); if (btn) btn.classList.add('active');
+      document.getElementById('tool-attrezzi').classList.add('active');
+    } else {
+      submenu.classList.remove('open');
+      const btn = document.getElementById('tool-' + tool); if (btn) btn.classList.add('active');
+    }
+  }
+
+  function getDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX; const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  function getMidpoint(touches) {
+    return { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 };
+  }
+  function getCoordinates(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+    let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
+  }
+
+  function startPosition(e) {
+    e.preventDefault();
+    if (e.touches && e.touches.length === 2) {
+      if (timeoutPiazzamento) clearTimeout(timeoutPiazzamento);
+      initialDistance = getDistance(e.touches); initialScale = scale;
+      const mid = getMidpoint(e.touches);
+      initialMidX = (mid.x - panX) / scale; initialMidY = (mid.y - panY) / scale;
+      isPanning = true; oggettoTrascinato = null; trattoCorrente = null;
+      return;
+    }
+
+    const coords = getCoordinates(e);
+    if (currentTool === 'text') {
+      const testoInserito = prompt("Inserisci il testo:");
+      if (testoInserito && testoInserito.trim() !== "") {
+        oggetti.push({ type: 'text', text: testoInserito.trim(), x: coords.x, y: coords.y });
+        ridisegnaOggetti();
+      }
+      return;
+    }
+
+    const oggettoToccato = oggetti.find(obj => Math.hypot(obj.x - coords.x, obj.y - coords.y) < 45);
+    
+    if (currentTool === 'move' || (oggettoToccato && !['eraser', 'draw'].includes(currentTool))) {
+      if (oggettoToccato) { oggettoTrascinato = oggettoToccato; return; }
+    }
+
+    if (currentTool === 'eraser') {
+      const idx = oggetti.findIndex(obj => Math.hypot(obj.x - coords.x, obj.y - coords.y) < 45);
+      if (idx !== -1) { oggetti.splice(idx, 1); ridisegnaOggetti(); return; }
+      else { cancellaTrattiVicini(coords.x, coords.y); trattoCorrente = { points: [coords], thickness: 20 }; return; }
+    }
+
+    if (['player-red', 'player-blue', 'ball', 'cone', 'disc', 'circle', 'goal', 'dummy', 'pole', 'hurdle'].includes(currentTool)) {
+      timeoutPiazzamento = setTimeout(() => {
+        let nuovoOggetto = { type: currentTool, x: coords.x, y: coords.y };
+        if (currentTool === 'player-red') { nuovoOggetto.type = 'player'; nuovoOggetto.color = '#e53e3e'; }
+        if (currentTool === 'player-blue') { nuovoOggetto.type = 'player'; nuovoOggetto.color = '#3182ce'; }
+        oggetti.push(nuovoOggetto);
+        ridisegnaOggetti(); timeoutPiazzamento = null;
+      }, 50);
+      return;
+    }
+
+    if (currentTool === 'draw') {
+      trattoCorrente = { points: [coords], thickness: 5 };
+      trattiDisegno.push(trattoCorrente);
+      ridisegnaTratti();
+    }
+  }
+
+  function draw(e) {
+    e.preventDefault();
+    if (e.touches && e.touches.length === 2 && isPanning) {
+      const currentDistance = getDistance(e.touches); const factor = currentDistance / initialDistance;
+      const newScale = Math.max(0.2, Math.min(4, initialScale * factor));
+      const mid = getMidpoint(e.touches);
+      panX = mid.x - initialMidX * newScale; panY = mid.y - initialMidY * newScale;
+      scale = newScale; aggiornaTrasformazione(); return;
+    }
+
+    if (oggettoTrascinato) {
+      const coords = getCoordinates(e);
+      oggettoTrascinato.x = coords.x; oggettoTrascinato.y = coords.y;
+      ridisegnaOggetti(); return;
+    }
+
+    if (!trattoCorrente) return;
+    const coords = getCoordinates(e);
+    if (currentTool === 'draw') { trattoCorrente.points.push(coords); ridisegnaTratti(); }
+    else if (currentTool === 'eraser') { cancellaTrattiVicini(coords.x, coords.y); trattoCorrente.points.push(coords); }
+  }
+
+  function endPosition(e) {
+    oggettoTrascinato = null; trattoCorrente = null;
+    if (e.touches && e.touches.length < 2) isPanning = false;
+  }
+
+  drawCanvas.addEventListener('mousedown', startPosition);
+  drawCanvas.addEventListener('mousemove', draw);
+  drawCanvas.addEventListener('mouseup', endPosition);
+  drawCanvas.addEventListener('mouseout', endPosition);
+  drawCanvas.addEventListener('touchstart', startPosition, { passive: false });
+  drawCanvas.addEventListener('touchmove', draw, { passive: false });
+  drawCanvas.addEventListener('touchend', endPosition, { passive: false });
+
+  function pulisciCampo() {
+    if (confirm("Vuoi cancellare tutto lo schema?")) {
+      dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      trattiDisegno = []; oggetti = [];
+      ridisegnaOggetti();
+    }
+  }
+
+  function apriModaleSalva() {
+    document.getElementById("nomeSchemaInput").value = "";
+    document.getElementById("modaleSalva").classList.add("active");
+    setTimeout(() => document.getElementById("nomeSchemaInput").focus(), 100);
+  }
+
+  function chiudiModaleSalva() {
+    document.getElementById("modaleSalva").classList.remove("active");
+  }
+
+  function confermaSalvataggio() {
+    const nome = document.getElementById("nomeSchemaInput").value.trim();
+    if (!nome) { alert("Inserisci un nome per lo schema!"); return; }
+
+    let schemiSalvati = JSON.parse(localStorage.getItem("sambaSchemi") || "[]");
+    const indexEsistente = schemiSalvati.findIndex(s => s.nome.toLowerCase() === nome.toLowerCase());
+
+    if (indexEsistente !== -1) {
+      if (confirm(`Esiste già uno schema chiamato "${nome}". Vuoi sovrascriverlo?`)) {
+        salvaDatiReali(nome, indexEsistente, schemiSalvati);
+      }
+    } else {
+      salvaDatiReali(nome, -1, schemiSalvati);
+    }
+  }
+
+  function salvaDatiReali(nome, indexEsistente, schemiSalvati) {
+    const schemaData = {
+      nome: nome,
+      oggetti: JSON.parse(JSON.stringify(oggetti)),
+      tratti: JSON.parse(JSON.stringify(trattiDisegno))
+    };
+
+    if (indexEsistente !== -1) {
+      schemiSalvati[indexEsistente] = schemaData;
+      alert(`Schema "${nome}" aggiornato!`);
+    } else {
+      schemiSalvati.push(schemaData);
+      alert(`Schema "${nome}" salvato!`);
+    }
+    
+    localStorage.setItem("sambaSchemi", JSON.stringify(schemiSalvati));
+    chiudiModaleSalva();
+  }
+
+  function apriModaleCarica() {
+    const container = document.getElementById("listaSchemiContainer");
+    let schemiSalvati = JSON.parse(localStorage.getItem("sambaSchemi") || "[]");
+    
+    if (schemiSalvati.length === 0) {
+      container.innerHTML = `<p style="text-align:center; color:#a0aec0; padding:20px;">Nessuno schema salvato.</p>`;
+    } else {
+      container.innerHTML = "";
+      schemiSalvati.forEach((s, i) => {
+        const div = document.createElement("div");
+        div.className = "schema-item";
+        div.innerHTML = `
+          <span class="schema-info" onclick="caricaSchemaSpecifico(${i})">📋 ${s.nome}</span>
+          <button class="btn-delete" onclick="cancellaSchemaSpecifico(${i})">🗑️</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+    document.getElementById("modaleCarica").classList.add('active');
+  }
+
+  function chiudiModaleCarica() {
+    document.getElementById("modaleCarica").classList.remove('active');
+  }
+
+  function caricaSchemaSpecifico(index) {
+    let schemiSalvati = JSON.parse(localStorage.getItem("sambaSchemi") || "[]");
+    const schema = schemiSalvati[index];
+    if (!schema) return;
+
+    oggetti = JSON.parse(JSON.stringify(schema.oggetti || []));
+    trattiDisegno = JSON.parse(JSON.stringify(schema.tratti || []));
+
+    dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    ridisegnaOggetti();
+    ridisegnaTratti();
+
+    chiudiModaleCarica();
+    document.getElementById("nomeSchemaInput").value = schema.nome;
+  }
+
+  function cancellaSchemaSpecifico(index) {
+    if (!confirm("Sei sicuro di voler eliminare questo schema?")) return;
+    
+    let schemiSalvati = JSON.parse(localStorage.getItem("sambaSchemi") || "[]");
+    schemiSalvati.splice(index, 1);
+    localStorage.setItem("sambaSchemi", JSON.stringify(schemiSalvati));
+    
+    apriModaleCarica();
+  }
+
+  initCanvas();
+</script>
+</body>
+</html>

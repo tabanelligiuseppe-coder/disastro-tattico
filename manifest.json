@@ -1,0 +1,20 @@
+{
+  "name": "Disastro Tattico",
+  "short_name": "Disastro Tattico",
+  "description": "Lavagna tattica per allenatori che non si prendono troppo sul serio.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a202c",
+  "theme_color": "#1a202c",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
